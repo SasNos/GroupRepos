@@ -1,19 +1,19 @@
 # Group Repos
 
-A small Chrome extension for the **Repositories** tab of your GitHub profile. GitHub lets you put repos into lists (the ones you create under Stars), but the repositories page ignores them. This extension reads those lists and groups the page by them, so you can fold lists away and filter your repos.
+A small Chrome extension for the **Repositories** tab of your GitHub profile. GitHub lets you put repos into lists (the ones you create under Stars), but the repositories page ignores them. With this extension you can type list names into the existing "Find a repository" box and the page shows only the repos in those lists.
 
 ## How it works
 
-Open `github.com/<you>?tab=repositories`. Above the repo list there is a bar:
+Open `github.com/<you>?tab=repositories` and type into "Find a repository":
 
-- **Filter repos**: type to narrow the repos by name or description.
-- **All lists** dropdown: show one list only, or only the repos that are in no list.
-- **Collapse all / Expand all**, and a click on any list title folds that list. Folding is remembered.
-- **Refresh**: read your lists from GitHub again.
+- `Games` shows the repos in your list Games.
+- `Games, Tools` shows the repos that are in Games or in Tools.
+- `Games, parser` shows the repos in Games whose name or description contains "parser".
+- Anything that is not a list name works as the normal search.
 
-Each list becomes a section. A repo that is in several lists sits in the first one (in GitHub's order of your lists) and shows small chips for all of its lists. Repos in no list collect under "Not in a list".
+The list narrows while you type. List names are matched exactly, ignoring case. Nothing is added to the page; once your lists are known the placeholder of the box names two of them as an example.
 
-Your lists are read with your own GitHub session (`/stars/<you>/lists/...`), so private repos work too. The result is cached in `chrome.storage.local` and refreshed when it is older than ten minutes. Nothing is sent anywhere else. You keep managing the lists on GitHub itself (the "Lists" menu on a repo); this extension only shows them.
+Your lists are read with your own GitHub session (`/stars/<you>/lists/...`), so private repos work too. The result is cached in `chrome.storage.local` and read again when it is older than ten minutes, on the next page load. Nothing is sent anywhere else. You keep managing the lists on GitHub itself (the "Lists" menu on a repo).
 
 ## Install
 
@@ -23,10 +23,9 @@ Your lists are read with your own GitHub session (`/stars/<you>/lists/...`), so 
 ## Known limits
 
 - Only the Repositories tab of a profile is handled. Organisation pages use a different layout.
-- GitHub's own "Find a repository" box only searches the original list, so use the filter in the bar instead.
-- GitHub paginates the repo list. Grouping applies to the page you are looking at, and the counts only cover that page.
+- GitHub paginates the repo list, so the filter only sees the repos on the current page.
 - GitHub lists belong to starred repos. A repo is only in a list if you starred it first.
-- The reading of GitHub's pages is based on its current markup and has not been checked against your account yet. If the bar stays empty of lists, GitHub's markup probably differs from what the parser expects.
+- The reading of GitHub's list pages is based on its current markup and has not been checked against your account yet. If typing a list name does nothing, the parser probably does not match the real markup.
 
 ## Tests
 

@@ -6,6 +6,7 @@ const repoItem = (name) => `
 
 const page = (...names) => `
   <meta name="user-login" content="me">
+  <input id="your-repos-filter" placeholder="Find a repository…">
   <div id="user-repositories-list">
     <ul data-filterable-for="your-repos-filter">${names.map(repoItem).join('')}</ul>
   </div>`;
@@ -19,7 +20,6 @@ const state = (extra = {}) => ({
   ],
   membership: { 'me/one': ['games'], 'me/two': ['tools', 'games'] },
   fetchedAt: Date.now(),
-  collapsed: {},
   ...extra,
 });
 
@@ -43,10 +43,7 @@ async function loadScript() {
 }
 
 const parse = (html) => new DOMParser().parseFromString(html, 'text/html');
-const names = (parent) => [...parent.querySelectorAll('a[itemprop~="codeRepository"]')].map((a) => a.textContent);
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
-const env = () => ({ save: vi.fn(async () => {}), refresh: vi.fn(async () => {}) });
-const section = (title) => [...document.querySelectorAll('.gr-group')].find((s) => s.textContent.includes(title));
 
 let api;
 
@@ -55,7 +52,6 @@ beforeEach(async () => {
   vi.unstubAllGlobals();
   delete globalThis.chrome;
   api = await loadScript();
-  Object.assign(api.ui, { status: '', query: '', list: '' });
 });
 
 describe('reading GitHub pages', () => {
@@ -179,146 +175,117 @@ describe('storage', () => {
   });
 });
 
+const visible = () => [...document.querySelectorAll('li:not(.gr-hide) a[itemprop~="codeRepository"]')].map((a) => a.textContent);
+const type = (text) => {
+  const input = document.getElementById('your-repos-filter');
+  input.value = text;
+  input.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));
+};
+
+describe('query', () => {
+  const st = state();
+
+  it('separates list names from other words, ignoring case and blanks', () => {
+    expect(api.parseQuery(' games , TOOLS,, extra ', st)).toEqual({ slugs: ['games', 'tools'], terms: ['extra'] });
+  });
+
+  it('treats text without a list name as one plain search', () => {
+    expect(api.parseQuery('foo, bar', st)).toEqual({ slugs: [], terms: ['foo, bar'] });
+    expect(api.parseQuery('  ', st)).toEqual({ slugs: [], terms: [] });
+  });
+});
+
 describe('mount', () => {
   const setup = (st, ...repos) => {
     document.body.innerHTML = page(...repos);
-    const e = env();
-    return { e, mounted: api.mount(document, st, e) };
+    return api.mount(document, st);
   };
 
-  it('does nothing on pages without a repository list', () => {
+  it('does nothing on pages without a repository list or filter field', () => {
     document.body.innerHTML = '<div id="user-repositories-list"></div>';
-    expect(api.mount(document, api.emptyState(), env())).toBe(false);
+    expect(api.mount(document, state())).toBe(false);
     document.body.innerHTML = '';
-    expect(api.mount(document, api.emptyState(), env())).toBe(false);
+    expect(api.mount(document, state())).toBe(false);
+    document.body.innerHTML = page('one').replace('id="your-repos-filter"', 'id="other"');
+    expect(api.mount(document, state())).toBe(false);
   });
 
-  it('leaves the page alone while there are no lists yet', () => {
-    const { mounted } = setup(api.emptyState(), 'one', 'two');
-    expect(mounted).toBe(true);
-    expect(document.querySelectorAll('.gr-group')).toHaveLength(0);
-    expect(names(document.querySelector('ul[data-filterable-for]'))).toEqual(['one', 'two']);
-    expect(document.querySelector('ul[data-filterable-for]').classList.contains('gr-hide')).toBe(false);
-  });
-
-  it('puts each repo in its first list, adds chips, and keeps the rest together', () => {
-    setup(state(), 'one', 'two', 'three');
-    expect(names(section('Games'))).toEqual(['one', 'two']);
-    expect(names(section('Not in a list'))).toEqual(['three']);
-    expect([...document.querySelectorAll('.gr-group')].map((s) => s.querySelector('.gr-toggle').textContent)).toEqual([
-      '▾ Games (2)', '▾ Not in a list (1)',
-    ]);
-    const chips = (name) => [...document.querySelectorAll('a[href$="/' + name + '"]')][0]
-      .closest('h3').querySelectorAll('.gr-chip');
-    expect([...chips('two')].map((c) => c.textContent)).toEqual(['Games', 'Tools']);
-    expect(document.querySelector('ul[data-filterable-for]').classList.contains('gr-hide')).toBe(true);
-  });
-
-  it('orders groups by GitHub list order and skips lists without repos here', () => {
-    setup(state({ membership: { 'me/one': ['tools'], 'me/two': ['games'] } }), 'one', 'two', 'three');
-    expect([...document.querySelectorAll('.gr-toggle')].map((t) => t.textContent.split(' (')[0].slice(2))).toEqual([
-      'Games', 'Tools', 'Not in a list',
-    ]);
-    setup(state({ membership: { 'me/one': ['gone'] } }), 'one');
-    expect(document.querySelectorAll('.gr-group')).toHaveLength(1);
-  });
-
-  it('is idempotent and keeps the original order', () => {
-    const { e } = setup(state(), 'one', 'two', 'three');
-    api.mount(document, state({ membership: {} }), e);
-    expect(document.querySelectorAll('.gr-root')).toHaveLength(1);
-    expect(document.querySelectorAll('.gr-chip')).toHaveLength(0);
-    expect(names(section('Not in a list'))).toEqual(['one', 'two', 'three']);
-    api.mount(document, api.emptyState(), e);
-    expect(names(document.querySelector('ul[data-filterable-for]'))).toEqual(['one', 'two', 'three']);
-  });
-
-  it('copes with an item that has no heading', () => {
+  it('adds no elements to the page', () => {
     document.body.innerHTML = page('one');
-    document.querySelector('h3').replaceWith(document.createElement('div'));
-    expect(api.mount(document, state(), env())).toBe(true);
+    const count = document.body.querySelectorAll('*').length;
+    api.mount(document, state());
+    expect(document.body.querySelectorAll('*').length).toBe(count);
   });
 
-  it('folds, unfolds and saves', () => {
-    const { e } = setup(state(), 'one');
-    const toggle = () => document.querySelector('.gr-toggle');
-    toggle().click();
-    expect(document.querySelector('.gr-items').classList.contains('gr-hide')).toBe(true);
-    expect(toggle().getAttribute('aria-expanded')).toBe('false');
-    expect(toggle().textContent).toBe('▸ Games (1)');
-    toggle().click();
-    expect(document.querySelector('.gr-items').classList.contains('gr-hide')).toBe(false);
-    expect(e.save).toHaveBeenCalledTimes(2);
+  it('names example lists in the placeholder once lists are known', () => {
+    setup(api.emptyState(), 'one');
+    expect(document.getElementById('your-repos-filter').placeholder).toBe('Find a repository…');
+    api.mount(document, state());
+    expect(document.getElementById('your-repos-filter').placeholder).toBe(
+      'Find a repository or lists, e.g. Games, Tools…',
+    );
   });
 
-  it('collapses and expands everything', () => {
-    const st = state();
-    const { e } = setup(st, 'one', 'three');
-    const bar = [...document.querySelectorAll('.gr-bar .gr-btn')];
-    bar[0].click();
-    expect(document.querySelectorAll('.gr-items.gr-hide')).toHaveLength(2);
-    expect(st.collapsed).toEqual({ games: true, __none: true });
-    bar[1].click();
-    expect(document.querySelectorAll('.gr-items.gr-hide')).toHaveLength(0);
-    expect(e.save).toHaveBeenCalledTimes(2);
-  });
-
-  it('filters by text and hides sections that end up empty', () => {
-    setup(state({ membership: { 'me/alpha': ['games'], 'me/beta': ['games'] } }), 'alpha', 'beta');
-    const input = document.querySelector('.gr-input');
-    input.value = ' ALP ';
-    input.dispatchEvent(new Event('input'));
-    expect(document.querySelectorAll('.gr-group:not(.gr-hide)')).toHaveLength(1);
-    expect(section('Games').querySelector('.gr-toggle').textContent).toBe('▾ Games (1 of 2)');
-    input.value = 'zzz';
-    input.dispatchEvent(new Event('input'));
-    expect(document.querySelectorAll('.gr-group:not(.gr-hide)')).toHaveLength(0);
-    input.value = '';
-    input.dispatchEvent(new Event('input'));
-    expect(document.querySelectorAll('li.gr-hide')).toHaveLength(0);
-  });
-
-  it('filters by one list, by no list, and shows the count of matches', () => {
+  it('shows only the repos of the typed lists, live while typing', () => {
     setup(state(), 'one', 'two', 'three');
-    const select = document.querySelector('.gr-select');
-    expect([...select.options].map((o) => o.textContent)).toEqual(['All lists', 'Not in a list', 'Games', 'Tools']);
-    select.value = 'tools';
-    select.dispatchEvent(new Event('change'));
-    expect(section('Games').querySelector('.gr-toggle').textContent).toBe('▾ Games (1 of 2)');
-    expect(document.querySelectorAll('li.gr-hide')).toHaveLength(2);
-    select.value = '__none';
-    select.dispatchEvent(new Event('change'));
-    expect(document.querySelectorAll('li:not(.gr-hide)')).toHaveLength(1);
-    select.value = '';
-    select.dispatchEvent(new Event('change'));
-    expect(document.querySelectorAll('li.gr-hide')).toHaveLength(0);
+    expect(visible()).toEqual(['one', 'two', 'three']);
+    type('Games');
+    expect(visible()).toEqual(['one', 'two']);
+    type('Tools');
+    expect(visible()).toEqual(['two']);
+    type('Tools, Games');
+    expect(visible()).toEqual(['one', 'two']);
+    type('');
+    expect(visible()).toEqual(['one', 'two', 'three']);
   });
 
-  it('keeps the filter across mounts and drops a list that no longer exists', () => {
-    const { e } = setup(state(), 'one', 'two');
-    Object.assign(api.ui, { query: 'one', list: 'games' });
-    api.mount(document, state(), e);
-    expect(document.querySelector('.gr-input').value).toBe('one');
-    expect(document.querySelector('.gr-select').value).toBe('games');
-    api.ui.list = 'gone';
-    api.mount(document, state(), e);
-    expect(api.ui.list).toBe('');
+  it('narrows a list by further words', () => {
+    setup(state(), 'one', 'two', 'three');
+    type('games, two');
+    expect(visible()).toEqual(['two']);
   });
 
-  it('refresh button calls the refresh hook and shows the status', () => {
-    api.ui.status = 'Working';
-    const { e } = setup(state(), 'one');
-    expect(document.querySelector('.gr-status').textContent).toBe('Working');
-    [...document.querySelectorAll('.gr-bar .gr-btn')][2].click();
-    expect(e.refresh).toHaveBeenCalledTimes(1);
+  it('searches plain text when no list is named', () => {
+    setup(state(), 'one', 'two', 'three');
+    type(' TWO ');
+    expect(visible()).toEqual(['two']);
+    type('zzz');
+    expect(visible()).toEqual([]);
+  });
+
+  it("keeps GitHub's own filter from seeing the typing", () => {
+    setup(state(), 'one');
+    const own = vi.fn();
+    document.getElementById('your-repos-filter').addEventListener('input', own);
+    type('Games');
+    expect(own).not.toHaveBeenCalled();
+  });
+
+  it('ignores typing in other fields and binds the field only once', () => {
+    setup(state(), 'one', 'two');
+    api.mount(document, state());
+    api.mount(document, state());
+    const other = document.createElement('input');
+    document.body.append(other);
+    other.dispatchEvent(new Event('input', { bubbles: true }));
+    type('Games, one');
+    expect(visible()).toEqual(['one']);
+  });
+
+  it('uses the newest data after a re-mount', () => {
+    setup(state(), 'one', 'two');
+    api.mount(document, state({ membership: { 'me/two': ['games'] } }));
+    type('games');
+    expect(visible()).toEqual(['two']);
   });
 });
 
 describe('run and start', () => {
-  const lists = '<a href="/stars/me/lists/games">Games</a>';
-
   const stubGitHub = () => {
-    const pages = { '/stars/me/lists': lists, '/stars/me/lists/games': listPage('one') };
+    const pages = {
+      '/stars/me/lists': '<a href="/stars/me/lists/games">Games</a>',
+      '/stars/me/lists/games': listPage('one'),
+    };
     vi.stubGlobal('fetch', vi.fn(async (url) => ({ ok: true, text: async () => pages[url] })));
   };
 
@@ -328,12 +295,13 @@ describe('run and start', () => {
     expect(chrome.storage.local.get).not.toHaveBeenCalled();
   });
 
-  it('shows the cache without fetching while it is fresh', async () => {
+  it('uses the cache without fetching while it is fresh', async () => {
     globalThis.chrome = fakeChrome(state());
     vi.stubGlobal('fetch', vi.fn());
-    document.body.innerHTML = page('one');
+    document.body.innerHTML = page('one', 'two');
     expect(await api.run(document)).toBe(true);
-    expect(names(section('Games'))).toEqual(['one']);
+    type('Games');
+    expect(visible()).toEqual(['one', 'two']);
     expect(fetch).not.toHaveBeenCalled();
   });
 
@@ -342,40 +310,27 @@ describe('run and start', () => {
     stubGitHub();
     document.body.innerHTML = page('one', 'two');
     await api.run(document);
-    expect(names(section('Games'))).toEqual(['one']);
-    expect(names(section('Not in a list'))).toEqual(['two']);
-    expect(document.querySelector('.gr-status').textContent).toBe('1 lists loaded');
+    type('Games');
+    expect(visible()).toEqual(['one']);
     expect(chrome.data.groupReposData.membership).toEqual({ 'me/one': ['games'] });
   });
 
-  it('stays quiet when GitHub cannot be read and keeps the old data', async () => {
+  it('keeps the old data quietly when GitHub cannot be read', async () => {
     globalThis.chrome = fakeChrome(state({ fetchedAt: 1 }));
     vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false, status: 500 })));
-    document.body.innerHTML = page('one');
+    document.body.innerHTML = page('one', 'two');
     await api.run(document);
-    expect(document.querySelector('.gr-status').textContent).toBe('');
-    expect(names(section('Games'))).toEqual(['one']);
+    type('Tools');
+    expect(visible()).toEqual(['two']);
     expect(chrome.storage.local.set).not.toHaveBeenCalled();
   });
 
-  it('asks to sign in when no user is known', async () => {
+  it('does not fetch when no user is known', async () => {
     globalThis.chrome = fakeChrome();
     vi.stubGlobal('fetch', vi.fn());
     document.body.innerHTML = page('one').replace(/<meta[^>]*>/, '');
     await api.run(document);
-    expect(document.querySelector('.gr-status').textContent).toBe('Sign in to GitHub to group by your lists.');
     expect(fetch).not.toHaveBeenCalled();
-  });
-
-  it('refreshes again from the button', async () => {
-    globalThis.chrome = fakeChrome();
-    stubGitHub();
-    document.body.innerHTML = page('one');
-    await api.run(document);
-    fetch.mockClear();
-    [...document.querySelectorAll('.gr-bar .gr-btn')][2].click();
-    await flush();
-    expect(fetch).toHaveBeenCalled();
   });
 
   it('runs once on start and again after each navigation event', async () => {
@@ -388,7 +343,6 @@ describe('run and start', () => {
     document.dispatchEvent(new Event('pjax:end'));
     await flush();
     expect(chrome.storage.local.get).toHaveBeenCalledTimes(3);
-    expect(document.querySelectorAll('.gr-root')).toHaveLength(1);
   });
 
   it('starts by itself when the extension storage is available', async () => {
@@ -396,6 +350,6 @@ describe('run and start', () => {
     document.body.innerHTML = page('one');
     await loadScript();
     await flush();
-    expect(document.querySelector('.gr-root')).not.toBeNull();
+    expect(document.getElementById('your-repos-filter').dataset.grBound).toBe('1');
   });
 });

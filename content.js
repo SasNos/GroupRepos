@@ -1,17 +1,16 @@
-// Group Repos: show the repositories on your GitHub profile grouped by your own GitHub lists,
-// with folding and filtering. The lists are read from GitHub with your own session; the result
-// is cached in chrome.storage.local and nothing leaves the browser.
+// Group Repos: type the names of your GitHub lists into "Find a repository" (for example
+// "Games, Tools") and only the repos in those lists stay visible. The lists are read from GitHub
+// with your own session; the result is cached in chrome.storage.local and nothing leaves the browser.
 (() => {
   const KEY = 'groupReposData';
   const LIST_SELECTOR = '#user-repositories-list';
   const STALE_MS = 10 * 60 * 1000;
   const MAX_PAGES = 20;
-  const NONE = '__none';
 
-  const emptyState = () => ({ lists: [], membership: {}, fetchedAt: 0, collapsed: {} });
+  const emptyState = () => ({ lists: [], membership: {}, fetchedAt: 0 });
 
-  // Shared between mounts so typing in the filter survives a re-mount.
-  const ui = { status: '', query: '', list: '' };
+  // The latest mounted page, read by the one input listener per page.
+  let current = null;
 
   const viewerName = (doc) => {
     const meta = doc.querySelector('meta[name="user-login"]');
@@ -94,146 +93,60 @@
 
   const save = (state) => chrome.storage.local.set({ [KEY]: state });
 
-  function el(doc, tag, attrs = {}, text = '') {
-    const node = doc.createElement(tag);
-    for (const [name, value] of Object.entries(attrs)) node.setAttribute(name, value);
-    node.textContent = text;
-    return node;
+  // "Games, Tools" selects the repos in either list. Words that are not list names narrow it
+  // further; without any list name the whole text is an ordinary search, like GitHub's own.
+  function parseQuery(query, state) {
+    const byName = new Map(state.lists.map((l) => [l.name.toLowerCase(), l.slug]));
+    const slugs = [];
+    const terms = [];
+    for (const raw of query.split(',')) {
+      const token = raw.trim().toLowerCase();
+      if (!token) continue;
+      if (byName.has(token)) slugs.push(byName.get(token));
+      else terms.push(token);
+    }
+    const whole = query.trim().toLowerCase();
+    return { slugs, terms: slugs.length ? terms : whole ? [whole] : [] };
   }
 
-  function button(doc, text, onClick) {
-    const node = el(doc, 'button', { type: 'button', class: 'btn gr-btn' }, text);
-    node.addEventListener('click', onClick);
-    return node;
-  }
-
-  function buildBar(doc, state, env, applyAll, setAllCollapsed) {
-    const bar = el(doc, 'div', { class: 'gr-bar' });
-    const input = el(doc, 'input', {
-      type: 'search',
-      class: 'form-control gr-input',
-      placeholder: 'Filter repos',
-      'aria-label': 'Filter repositories',
-    });
-    input.value = ui.query;
-    input.addEventListener('input', () => {
-      ui.query = input.value;
-      applyAll();
-    });
-
-    const select = el(doc, 'select', { class: 'form-select gr-select', 'aria-label': 'Show one list' });
-    select.append(el(doc, 'option', { value: '' }, 'All lists'), el(doc, 'option', { value: NONE }, 'Not in a list'));
-    for (const list of state.lists) select.append(el(doc, 'option', { value: list.slug }, list.name));
-    if (![...select.options].some((o) => o.value === ui.list)) ui.list = '';
-    select.value = ui.list;
-    select.addEventListener('change', () => {
-      ui.list = select.value;
-      applyAll();
-    });
-
-    bar.append(
-      input,
-      select,
-      button(doc, 'Collapse all', () => setAllCollapsed(true)),
-      button(doc, 'Expand all', () => setAllCollapsed(false)),
-      button(doc, 'Refresh', () => env.refresh()),
-      el(doc, 'span', { class: 'gr-status', role: 'status' }, ui.status),
-    );
-    return bar;
+  function applyFilter() {
+    const { host, input, state } = current;
+    const { slugs, terms } = parseQuery(input.value, state);
+    for (const item of host.querySelectorAll('li[itemprop="owns"]')) {
+      const text = item.textContent.toLowerCase();
+      const inLists = state.membership[repoName(item)] || [];
+      const show = terms.every((t) => text.includes(t)) && (!slugs.length || slugs.some((s) => inLists.includes(s)));
+      item.classList.toggle('gr-hide', !show);
+    }
   }
 
   // Idempotent: safe to call again after every data change and after every page navigation.
-  function mount(doc, state, env) {
+  function mount(doc, state) {
     const host = doc.querySelector(LIST_SELECTOR);
     const original = host && host.querySelector('ul[data-filterable-for]');
-    if (!original) return false;
+    const input = original && doc.getElementById(original.getAttribute('data-filterable-for'));
+    if (!input) return false;
 
-    let root = host.querySelector('.gr-root');
-    if (!root) {
-      root = el(doc, 'div', { class: 'gr-root' });
-      host.insertBefore(root, host.firstChild);
+    current = { host, input, state };
+    if (state.lists.length) {
+      const examples = state.lists.slice(0, 2).map((l) => l.name).join(', ');
+      input.placeholder = 'Find a repository or lists, e.g. ' + examples + '…';
     }
-
-    const items = [...host.querySelectorAll('li[itemprop="owns"]')];
-    items.forEach((item, index) => {
-      if (!item.dataset.grIndex) item.dataset.grIndex = String(index + 1);
-    });
-    items.sort((a, b) => a.dataset.grIndex - b.dataset.grIndex);
-
-    const groups = [];
-    const groupFor = (key, name) => {
-      let group = groups.find((g) => g.key === key);
-      if (!group) {
-        const section = el(doc, 'section', { class: 'gr-group' });
-        const toggle = el(doc, 'button', { type: 'button', class: 'gr-toggle' });
-        const list = el(doc, 'ul', { class: 'gr-items' });
-        section.append(toggle, list);
-        group = { key, name, section, toggle, list, entries: [] };
-        toggle.addEventListener('click', () => {
-          state.collapsed[key] = !state.collapsed[key];
-          paint(group);
-          env.save(state);
-        });
-        groups.push(group);
-      }
-      return group;
-    };
-
-    const grouped = state.lists.length > 0;
-    const names = new Map(state.lists.map((l) => [l.slug, l.name]));
-    for (const item of grouped ? items : []) {
-      const repo = repoName(item);
-      const mine = state.lists.filter((l) => (state.membership[repo] || []).includes(l.slug));
-      const header = item.querySelector('h3') || item;
-      header.querySelectorAll('.gr-chip').forEach((chip) => chip.remove());
-      for (const list of mine) header.append(el(doc, 'span', { class: 'Label Label--secondary gr-chip' }, names.get(list.slug)));
-      const group = mine.length ? groupFor(mine[0].slug, mine[0].name) : groupFor(NONE, 'Not in a list');
-      group.entries.push({ item, slugs: mine.map((l) => l.slug), text: item.textContent.toLowerCase() });
+    if (!input.dataset.grBound) {
+      input.dataset.grBound = '1';
+      // Capture on the document so GitHub's own filter never sees the typing and cannot hide
+      // everything because "Games, Tools" is not part of any repo name.
+      doc.addEventListener(
+        'input',
+        (event) => {
+          if (event.target !== input) return;
+          event.stopImmediatePropagation();
+          applyFilter();
+        },
+        true,
+      );
     }
-
-    // GitHub's own order of lists first, the rest last.
-    const order = (g) => (g.key === NONE ? state.lists.length : state.lists.findIndex((l) => l.slug === g.key));
-    groups.sort((a, b) => order(a) - order(b));
-
-    const paint = (group) => {
-      const collapsed = !!state.collapsed[group.key];
-      const total = group.entries.length;
-      group.list.classList.toggle('gr-hide', collapsed);
-      group.toggle.setAttribute('aria-expanded', String(!collapsed));
-      const count = group.visible === total ? String(total) : group.visible + ' of ' + total;
-      group.toggle.textContent = (collapsed ? '▸ ' : '▾ ') + group.name + ' (' + count + ')';
-    };
-
-    const matches = (entry) =>
-      entry.text.includes(ui.query.trim().toLowerCase()) &&
-      (ui.list === '' || (ui.list === NONE ? entry.slugs.length === 0 : entry.slugs.includes(ui.list)));
-
-    const applyAll = () => {
-      for (const group of groups) {
-        group.visible = 0;
-        for (const entry of group.entries) {
-          const show = matches(entry);
-          entry.item.classList.toggle('gr-hide', !show);
-          if (show) group.visible++;
-        }
-        group.section.classList.toggle('gr-hide', group.visible === 0);
-        paint(group);
-      }
-    };
-
-    const setAllCollapsed = (collapsed) => {
-      for (const group of groups) state.collapsed[group.key] = collapsed;
-      applyAll();
-      env.save(state);
-    };
-
-    root.replaceChildren(buildBar(doc, state, env, applyAll, setAllCollapsed), ...groups.map((g) => g.section));
-    for (const group of groups) {
-      for (const entry of group.entries) group.list.append(entry.item);
-    }
-    original.classList.toggle('gr-hide', grouped);
-    if (!grouped) for (const item of items) original.append(item);
-    applyAll();
+    applyFilter();
     return true;
   }
 
@@ -241,29 +154,16 @@
     if (!doc.querySelector(LIST_SELECTOR)) return false;
     const state = await load();
     const viewer = viewerName(doc);
-
-    const env = {
-      save,
-      async refresh() {
-        if (!viewer) {
-          ui.status = 'Sign in to GitHub to group by your lists.';
-          return mount(doc, state, env);
-        }
-        ui.status = 'Reading your lists…';
-        mount(doc, state, env);
-        try {
-          Object.assign(state, await collect(viewer, fetchDoc));
-          ui.status = state.lists.length + ' lists loaded';
-          await save(state);
-        } catch {
-          ui.status = '';
-        }
-        return mount(doc, state, env);
-      },
-    };
-
-    const mounted = mount(doc, state, env);
-    if (Date.now() - state.fetchedAt > STALE_MS) await env.refresh();
+    const mounted = mount(doc, state);
+    if (viewer && Date.now() - state.fetchedAt > STALE_MS) {
+      try {
+        Object.assign(state, await collect(viewer, fetchDoc));
+        await save(state);
+        mount(doc, state);
+      } catch {
+        // Keep working with the cached lists; the next page load tries again.
+      }
+    }
     return mounted;
   }
 
@@ -276,7 +176,7 @@
 
   globalThis.GroupRepos = {
     parseListLinks, parseRepoLinks, fetchRepos, collect, fetchDoc, repoName, viewerName,
-    mount, run, start, load, save, emptyState, ui,
+    parseQuery, mount, run, start, load, save, emptyState,
   };
 
   if (typeof chrome !== 'undefined' && chrome.storage) start(document);
