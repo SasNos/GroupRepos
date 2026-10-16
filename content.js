@@ -102,7 +102,7 @@
   }
 
   function button(doc, text, onClick) {
-    const node = el(doc, 'button', { type: 'button', class: 'btn btn-sm gr-btn' }, text);
+    const node = el(doc, 'button', { type: 'button', class: 'btn gr-btn' }, text);
     node.addEventListener('click', onClick);
     return node;
   }
@@ -111,7 +111,7 @@
     const bar = el(doc, 'div', { class: 'gr-bar' });
     const input = el(doc, 'input', {
       type: 'search',
-      class: 'form-control input-sm gr-input',
+      class: 'form-control gr-input',
       placeholder: 'Filter repos',
       'aria-label': 'Filter repositories',
     });
@@ -121,7 +121,7 @@
       applyAll();
     });
 
-    const select = el(doc, 'select', { class: 'form-select select-sm gr-select', 'aria-label': 'Show one list' });
+    const select = el(doc, 'select', { class: 'form-select gr-select', 'aria-label': 'Show one list' });
     select.append(el(doc, 'option', { value: '' }, 'All lists'), el(doc, 'option', { value: NONE }, 'Not in a list'));
     for (const list of state.lists) select.append(el(doc, 'option', { value: list.slug }, list.name));
     if (![...select.options].some((o) => o.value === ui.list)) ui.list = '';
