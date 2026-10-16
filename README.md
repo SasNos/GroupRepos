@@ -26,7 +26,7 @@ Your lists are read with your own GitHub session (`/stars/<you>/lists/...`), so 
 - GitHub's own "Find a repository" box only searches the original list, so use the filter in the bar instead.
 - GitHub paginates the repo list. Grouping applies to the page you are looking at, and the counts only cover that page.
 - GitHub lists belong to starred repos. A repo is only in a list if you starred it first.
-- The reading of GitHub's pages is based on its current markup and has not been checked against your account yet. If the bar says it could not read your lists, GitHub's markup probably differs from what the parser expects.
+- The reading of GitHub's pages is based on its current markup and has not been checked against your account yet. If the bar stays empty of lists, GitHub's markup probably differs from what the parser expects.
 
 ## Tests
 

@@ -348,12 +348,12 @@ describe('run and start', () => {
     expect(chrome.data.groupReposData.membership).toEqual({ 'me/one': ['games'] });
   });
 
-  it('says so when GitHub cannot be read and keeps the old data', async () => {
+  it('stays quiet when GitHub cannot be read and keeps the old data', async () => {
     globalThis.chrome = fakeChrome(state({ fetchedAt: 1 }));
     vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false, status: 500 })));
     document.body.innerHTML = page('one');
     await api.run(document);
-    expect(document.querySelector('.gr-status').textContent).toBe('Could not read your GitHub lists.');
+    expect(document.querySelector('.gr-status').textContent).toBe('');
     expect(names(section('Games'))).toEqual(['one']);
     expect(chrome.storage.local.set).not.toHaveBeenCalled();
   });

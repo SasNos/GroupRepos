@@ -102,7 +102,7 @@
   }
 
   function button(doc, text, onClick) {
-    const node = el(doc, 'button', { type: 'button', class: 'gr-btn' }, text);
+    const node = el(doc, 'button', { type: 'button', class: 'btn btn-sm gr-btn' }, text);
     node.addEventListener('click', onClick);
     return node;
   }
@@ -111,7 +111,7 @@
     const bar = el(doc, 'div', { class: 'gr-bar' });
     const input = el(doc, 'input', {
       type: 'search',
-      class: 'gr-input',
+      class: 'form-control input-sm gr-input',
       placeholder: 'Filter repos',
       'aria-label': 'Filter repositories',
     });
@@ -121,7 +121,7 @@
       applyAll();
     });
 
-    const select = el(doc, 'select', { class: 'gr-select', 'aria-label': 'Show one list' });
+    const select = el(doc, 'select', { class: 'form-select select-sm gr-select', 'aria-label': 'Show one list' });
     select.append(el(doc, 'option', { value: '' }, 'All lists'), el(doc, 'option', { value: NONE }, 'Not in a list'));
     for (const list of state.lists) select.append(el(doc, 'option', { value: list.slug }, list.name));
     if (![...select.options].some((o) => o.value === ui.list)) ui.list = '';
@@ -186,7 +186,7 @@
       const mine = state.lists.filter((l) => (state.membership[repo] || []).includes(l.slug));
       const header = item.querySelector('h3') || item;
       header.querySelectorAll('.gr-chip').forEach((chip) => chip.remove());
-      for (const list of mine) header.append(el(doc, 'span', { class: 'gr-chip' }, names.get(list.slug)));
+      for (const list of mine) header.append(el(doc, 'span', { class: 'Label Label--secondary gr-chip' }, names.get(list.slug)));
       const group = mine.length ? groupFor(mine[0].slug, mine[0].name) : groupFor(NONE, 'Not in a list');
       group.entries.push({ item, slugs: mine.map((l) => l.slug), text: item.textContent.toLowerCase() });
     }
@@ -256,7 +256,7 @@
           ui.status = state.lists.length + ' lists loaded';
           await save(state);
         } catch {
-          ui.status = 'Could not read your GitHub lists.';
+          ui.status = '';
         }
         return mount(doc, state, env);
       },
