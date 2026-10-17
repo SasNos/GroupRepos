@@ -1,3 +1,4 @@
-.gr-hide { display: none !important; }
+/* GitHub's repo rows carry d-flex (display: flex !important), so the selector has to outrank it. */
+html #user-repositories-list .gr-hide { display: none !important; }
 
 .gr-tabs { margin: 16px 0; }
