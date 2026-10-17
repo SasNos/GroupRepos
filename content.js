@@ -42,7 +42,7 @@
 
   function parseRepoLinks(doc) {
     const names = [];
-    for (const link of doc.querySelectorAll('h3 a[href], a[itemprop~="codeRepository"]')) {
+    for (const link of doc.querySelectorAll('h1 a[href], h2 a[href], h3 a[href], a[itemprop~="codeRepository"]')) {
       const match = /^\/([^/]+\/[^/]+)\/?$/.exec(new URL(link.getAttribute('href'), 'https://github.com').pathname);
       if (match && !names.includes(match[1])) names.push(match[1]);
     }

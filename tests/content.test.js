@@ -94,6 +94,12 @@ describe('reading GitHub pages', () => {
     expect(api.parseRepoLinks(doc)).toEqual(['me/one', 'me/two', 'me/three']);
   });
 
+  it('reads repos from the headings GitHub uses on list pages', () => {
+    const doc = parse(`<div><h2 class="h3"><a href="/me/one">
+      <span class="text-normal">me / </span>one</a></h2></div><h2><a href="/me/two">two</a></h2>`);
+    expect(api.parseRepoLinks(doc)).toEqual(['me/one', 'me/two']);
+  });
+
   it('reads the signed-in user from the page', () => {
     expect(api.viewerName(parse('<meta name="user-login" content="me">'))).toBe('me');
     expect(api.viewerName(parse(''))).toBe('');
