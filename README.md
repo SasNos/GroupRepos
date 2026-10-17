@@ -6,12 +6,12 @@ A small Chrome extension for the **Repositories** tab of your GitHub profile. Gi
 
 Open `github.com/<you>?tab=repositories` and type into "Find a repository":
 
-- `Games` shows the repos in your list Games.
-- `Games, Tools` shows the repos that are in Games or in Tools.
-- `Games, parser` shows the repos in Games whose name or description contains "parser".
-- Anything that is not a list name works as the normal search.
+- `@gam` shows the repos in lists whose name starts with "gam", for example Games.
+- `@gam @too` shows the repos that are in a list starting with "gam" or one starting with "too".
+- `@gam parser` shows those repos whose name or description also contains "parser".
+- Words without an @ work as the normal search.
 
-The list narrows while you type. List names are matched exactly, ignoring case. Nothing is added to the page; once your lists are known the placeholder of the box names two of them as an example.
+An @ word needs at least three letters before it counts, and the page narrows while you type. Letters are matched from the start of the list name, ignoring case. If no list fits, nothing is shown. Nothing is added to the page; once your lists are known the placeholder of the box shows one of them as an example.
 
 Your lists are read with your own GitHub session (`/stars/<you>/lists/...`), so private repos work too. The result is cached in `chrome.storage.local` and read again when it is older than ten minutes, on the next page load. Nothing is sent anywhere else. You keep managing the lists on GitHub itself (the "Lists" menu on a repo).
 

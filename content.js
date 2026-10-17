@@ -6,6 +6,7 @@
   const LIST_SELECTOR = '#user-repositories-list';
   const STALE_MS = 10 * 60 * 1000;
   const MAX_PAGES = 20;
+  const MIN_PREFIX = 3;
 
   const emptyState = () => ({ lists: [], membership: {}, fetchedAt: 0 });
 
@@ -93,29 +94,35 @@
 
   const save = (state) => chrome.storage.local.set({ [KEY]: state });
 
-  // "Games, Tools" selects the repos in either list. Words that are not list names narrow it
-  // further; without any list name the whole text is an ordinary search, like GitHub's own.
+  // "@gam @too" selects the repos in a list starting with "gam" or in one starting with "too".
+  // An @ word needs three letters before it counts; shorter ones are ignored while typing.
+  // Every other word must appear in the repo's text, like in GitHub's own search.
   function parseQuery(query, state) {
-    const byName = new Map(state.lists.map((l) => [l.name.toLowerCase(), l.slug]));
-    const slugs = [];
+    const slugs = new Set();
     const terms = [];
-    for (const raw of query.split(',')) {
-      const token = raw.trim().toLowerCase();
+    let byList = false;
+    for (const raw of query.split(/[\s,]+/)) {
+      const token = raw.toLowerCase();
       if (!token) continue;
-      if (byName.has(token)) slugs.push(byName.get(token));
-      else terms.push(token);
+      if (!token.startsWith('@')) {
+        terms.push(token);
+        continue;
+      }
+      const prefix = token.slice(1);
+      if (prefix.length < MIN_PREFIX) continue;
+      byList = true;
+      for (const list of state.lists) if (list.name.toLowerCase().startsWith(prefix)) slugs.add(list.slug);
     }
-    const whole = query.trim().toLowerCase();
-    return { slugs, terms: slugs.length ? terms : whole ? [whole] : [] };
+    return { slugs: [...slugs], terms, byList };
   }
 
   function applyFilter() {
     const { host, input, state } = current;
-    const { slugs, terms } = parseQuery(input.value, state);
+    const { slugs, terms, byList } = parseQuery(input.value, state);
     for (const item of host.querySelectorAll('li[itemprop="owns"]')) {
       const text = item.textContent.toLowerCase();
       const inLists = state.membership[repoName(item)] || [];
-      const show = terms.every((t) => text.includes(t)) && (!slugs.length || slugs.some((s) => inLists.includes(s)));
+      const show = terms.every((t) => text.includes(t)) && (!byList || slugs.some((s) => inLists.includes(s)));
       item.classList.toggle('gr-hide', !show);
     }
   }
@@ -129,8 +136,7 @@
 
     current = { host, input, state };
     if (state.lists.length) {
-      const examples = state.lists.slice(0, 2).map((l) => l.name).join(', ');
-      input.placeholder = 'Find a repository or lists, e.g. ' + examples + '…';
+      input.placeholder = 'Find a repository or @list, e.g. @' + state.lists[0].name + '…';
     }
     if (!input.dataset.grBound) {
       input.dataset.grBound = '1';

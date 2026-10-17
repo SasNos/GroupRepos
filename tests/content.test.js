@@ -185,13 +185,24 @@ const type = (text) => {
 describe('query', () => {
   const st = state();
 
-  it('separates list names from other words, ignoring case and blanks', () => {
-    expect(api.parseQuery(' games , TOOLS,, extra ', st)).toEqual({ slugs: ['games', 'tools'], terms: ['extra'] });
+  it('reads @ words as list prefixes and the rest as search terms', () => {
+    expect(api.parseQuery(' @GAM , @too, extra ', st)).toEqual({
+      slugs: ['games', 'tools'], terms: ['extra'], byList: true,
+    });
   });
 
-  it('treats text without a list name as one plain search', () => {
-    expect(api.parseQuery('foo, bar', st)).toEqual({ slugs: [], terms: ['foo, bar'] });
-    expect(api.parseQuery('  ', st)).toEqual({ slugs: [], terms: [] });
+  it('ignores @ words shorter than three letters and plain text', () => {
+    expect(api.parseQuery('@ @ga foo', st)).toEqual({ slugs: [], terms: ['foo'], byList: false });
+    expect(api.parseQuery('  ', st)).toEqual({ slugs: [], terms: [], byList: false });
+  });
+
+  it('keeps a prefix that matches no list as a list filter with no lists', () => {
+    expect(api.parseQuery('@zzz', st)).toEqual({ slugs: [], terms: [], byList: true });
+  });
+
+  it('matches every list a prefix fits, once', () => {
+    const many = state({ lists: [{ slug: 'a', name: 'Web apps' }, { slug: 'b', name: 'Web sites' }] });
+    expect(api.parseQuery('@web @web', many).slugs).toEqual(['a', 'b']);
   });
 });
 
@@ -222,18 +233,22 @@ describe('mount', () => {
     expect(document.getElementById('your-repos-filter').placeholder).toBe('Find a repository…');
     api.mount(document, state());
     expect(document.getElementById('your-repos-filter').placeholder).toBe(
-      'Find a repository or lists, e.g. Games, Tools…',
+      'Find a repository or @list, e.g. @Games…',
     );
   });
 
   it('shows only the repos of the typed lists, live while typing', () => {
     setup(state(), 'one', 'two', 'three');
     expect(visible()).toEqual(['one', 'two', 'three']);
-    type('Games');
+    type('@Gam');
     expect(visible()).toEqual(['one', 'two']);
-    type('Tools');
+    type('@too');
     expect(visible()).toEqual(['two']);
-    type('Tools, Games');
+    type('@ga');
+    expect(visible()).toEqual(['one', 'two', 'three']);
+    type('@zzz');
+    expect(visible()).toEqual([]);
+    type('@tools, @games');
     expect(visible()).toEqual(['one', 'two']);
     type('');
     expect(visible()).toEqual(['one', 'two', 'three']);
@@ -241,11 +256,11 @@ describe('mount', () => {
 
   it('narrows a list by further words', () => {
     setup(state(), 'one', 'two', 'three');
-    type('games, two');
+    type('@games two');
     expect(visible()).toEqual(['two']);
   });
 
-  it('searches plain text when no list is named', () => {
+  it('searches plain words when no @ list is given', () => {
     setup(state(), 'one', 'two', 'three');
     type(' TWO ');
     expect(visible()).toEqual(['two']);
@@ -257,7 +272,7 @@ describe('mount', () => {
     setup(state(), 'one');
     const own = vi.fn();
     document.getElementById('your-repos-filter').addEventListener('input', own);
-    type('Games');
+    type('@Games');
     expect(own).not.toHaveBeenCalled();
   });
 
@@ -268,14 +283,14 @@ describe('mount', () => {
     const other = document.createElement('input');
     document.body.append(other);
     other.dispatchEvent(new Event('input', { bubbles: true }));
-    type('Games, one');
+    type('@Games, one');
     expect(visible()).toEqual(['one']);
   });
 
   it('uses the newest data after a re-mount', () => {
     setup(state(), 'one', 'two');
     api.mount(document, state({ membership: { 'me/two': ['games'] } }));
-    type('games');
+    type('@games');
     expect(visible()).toEqual(['two']);
   });
 });
@@ -300,7 +315,7 @@ describe('run and start', () => {
     vi.stubGlobal('fetch', vi.fn());
     document.body.innerHTML = page('one', 'two');
     expect(await api.run(document)).toBe(true);
-    type('Games');
+    type('@Games');
     expect(visible()).toEqual(['one', 'two']);
     expect(fetch).not.toHaveBeenCalled();
   });
@@ -310,7 +325,7 @@ describe('run and start', () => {
     stubGitHub();
     document.body.innerHTML = page('one', 'two');
     await api.run(document);
-    type('Games');
+    type('@Games');
     expect(visible()).toEqual(['one']);
     expect(chrome.data.groupReposData.membership).toEqual({ 'me/one': ['games'] });
   });
@@ -320,7 +335,7 @@ describe('run and start', () => {
     vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false, status: 500 })));
     document.body.innerHTML = page('one', 'two');
     await api.run(document);
-    type('Tools');
+    type('@Tools');
     expect(visible()).toEqual(['two']);
     expect(chrome.storage.local.set).not.toHaveBeenCalled();
   });
