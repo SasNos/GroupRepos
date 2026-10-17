@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Chrome extension: group the repositories on a GitHub profile into collapsible lists.",
+  "description": "Chrome extension: tab bar of your GitHub lists on the Repositories tab.",
   "scripts": {
     "test": "vitest run --coverage"
   },

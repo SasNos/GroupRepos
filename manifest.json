@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Group Repos",
   "version": "1.0.0",
-  "description": "Sort the repositories on a GitHub profile into your own lists and fold them away.",
+  "description": "Adds a tab bar to the Repositories tab of a GitHub profile, so you can switch between your GitHub lists.",
   "icons": { "16": "icons/icon16.png", "32": "icons/icon32.png", "48": "icons/icon48.png", "128": "icons/icon128.png" },
   "permissions": ["storage"],
   "content_scripts": [
