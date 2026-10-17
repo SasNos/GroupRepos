@@ -24,7 +24,7 @@ const state = (extra = {}) => ({
 });
 
 function fakeChrome(initial) {
-  const data = initial ? { groupReposData: initial } : {};
+  const data = initial ? { groupReposLists: initial } : {};
   return {
     data,
     storage: {
@@ -317,7 +317,7 @@ describe('run and start', () => {
     expect(label('games')).toBe('Games 1');
     tab('games').click();
     expect(visible()).toEqual(['one']);
-    expect(chrome.data.groupReposData.membership).toEqual({ 'me/one': ['games'] });
+    expect(chrome.data.groupReposLists.membership).toEqual({ 'me/one': ['games'] });
   });
 
   it('keeps the old data quietly when GitHub cannot be read', async () => {

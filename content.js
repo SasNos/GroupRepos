@@ -2,7 +2,7 @@
 // lists. The lists are read from GitHub with your own session; the result is cached in
 // chrome.storage.local and nothing leaves the browser.
 (() => {
-  const KEY = 'groupReposData';
+  const KEY = 'groupReposLists';
   const LIST_SELECTOR = '#user-repositories-list';
   const STALE_MS = 10 * 60 * 1000;
   const MAX_PAGES = 20;
