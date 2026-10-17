@@ -20,7 +20,7 @@ Your lists are read with your own GitHub session (`/stars/<you>/lists/...`), so 
 - Only the Repositories tab of a profile is handled. Organisation pages use a different layout.
 - GitHub paginates the repo list, so the tabs and counters only cover the repos on the current page.
 - GitHub lists belong to starred repos. A repo is only in a list if you starred it first.
-- The reading of GitHub's list pages is based on its current markup and has not been checked against your account yet. If only **All** shows up, the lists could not be read.
+- The reading of GitHub's list pages depends on its current markup (repo names in the headings of `/stars/<you>/lists/<list>`). If GitHub changes it, only **All** shows up.
 
 ## Tests
 
@@ -28,4 +28,4 @@ Your lists are read with your own GitHub session (`/stars/<you>/lists/...`), so 
 npm test
 ```
 
-Runs Vitest in jsdom with hand-written markup and a faked `fetch` and `chrome.storage`, and enforces 100 % line, branch, function and statement coverage of `content.js`. It has not been run in a real Chrome against the live site.
+Runs Vitest in jsdom with hand-written markup and a faked `fetch` and `chrome.storage`, and enforces 100 % line, branch, function and statement coverage of `content.js`. The extension itself was checked by hand in Chrome on a real profile.
