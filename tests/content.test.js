@@ -217,7 +217,7 @@ describe('mount', () => {
     expect(api.mount(document, state())).toBe(false);
     document.body.innerHTML = '';
     expect(api.mount(document, state())).toBe(false);
-    document.body.innerHTML = page('one').replace('id="your-repos-filter"', 'id="other"');
+    document.body.innerHTML = page('one').replace('id="your-repos-filter"', 'id="other"').replace('Find a repository', 'Search');
     expect(api.mount(document, state())).toBe(false);
   });
 
@@ -252,6 +252,40 @@ describe('mount', () => {
     expect(visible()).toEqual(['one', 'two']);
     type('');
     expect(visible()).toEqual(['one', 'two', 'three']);
+  });
+
+  it('filters on keyup too, but only from three characters on', () => {
+    setup(state(), 'one', 'two', 'three');
+    const input = document.getElementById('your-repos-filter');
+    const key = (text) => {
+      input.value = text;
+      input.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true }));
+    };
+    key('@to');
+    expect(visible()).toEqual(['one', 'two', 'three']);
+    key('@too');
+    expect(visible()).toEqual(['two']);
+    key('@t');
+    expect(visible()).toEqual(['one', 'two', 'three']);
+  });
+
+  it('keeps Enter from submitting the search, and other keys alone', () => {
+    setup(state(), 'one');
+    const input = document.getElementById('your-repos-filter');
+    const press = (key) => {
+      const event = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true });
+      input.dispatchEvent(event);
+      return event.defaultPrevented;
+    };
+    expect(press('Enter')).toBe(true);
+    expect(press('a')).toBe(false);
+  });
+
+  it('finds the search box by its placeholder when the list has no filter link', () => {
+    document.body.innerHTML = page('one').replace(' data-filterable-for="your-repos-filter"', '');
+    expect(api.mount(document, state())).toBe(true);
+    type('@Games');
+    expect(visible()).toEqual(['one']);
   });
 
   it('narrows a list by further words', () => {

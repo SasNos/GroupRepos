@@ -11,7 +11,7 @@ Open `github.com/<you>?tab=repositories` and type into "Find a repository":
 - `@gam parser` shows those repos whose name or description also contains "parser".
 - Words without an @ work as the normal search.
 
-An @ word needs at least three letters before it counts, and the page narrows while you type. Letters are matched from the start of the list name, ignoring case. If no list fits, nothing is shown. Nothing is added to the page; once your lists are known the placeholder of the box shows one of them as an example.
+The page filters on every key press once the box holds at least three characters (the @ counts); below that, all repos show. Enter does nothing, so the page is never reloaded. An @ word needs at least three letters after the @ before it counts. Letters are matched from the start of the list name, ignoring case. If no list fits, nothing is shown. Nothing is added to the page; once your lists are known the placeholder of the box shows one of them as an example.
 
 Your lists are read with your own GitHub session (`/stars/<you>/lists/...`), so private repos work too. The result is cached in `chrome.storage.local` and read again when it is older than ten minutes, on the next page load. Nothing is sent anywhere else. You keep managing the lists on GitHub itself (the "Lists" menu on a repo).
 

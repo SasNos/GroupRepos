@@ -7,6 +7,7 @@
   const STALE_MS = 10 * 60 * 1000;
   const MAX_PAGES = 20;
   const MIN_PREFIX = 3;
+  const MIN_QUERY = 3;
 
   const emptyState = () => ({ lists: [], membership: {}, fetchedAt: 0 });
 
@@ -118,11 +119,12 @@
 
   function applyFilter() {
     const { host, input, state } = current;
+    const active = input.value.trim().length >= MIN_QUERY;
     const { slugs, terms, byList } = parseQuery(input.value, state);
     for (const item of host.querySelectorAll('li[itemprop="owns"]')) {
       const text = item.textContent.toLowerCase();
       const inLists = state.membership[repoName(item)] || [];
-      const show = terms.every((t) => text.includes(t)) && (!byList || slugs.some((s) => inLists.includes(s)));
+      const show = !active || (terms.every((t) => text.includes(t)) && (!byList || slugs.some((s) => inLists.includes(s))));
       item.classList.toggle('gr-hide', !show);
     }
   }
@@ -131,7 +133,8 @@
   function mount(doc, state) {
     const host = doc.querySelector(LIST_SELECTOR);
     const original = host && host.querySelector('ul[data-filterable-for]');
-    const input = original && doc.getElementById(original.getAttribute('data-filterable-for'));
+    const ownId = original && original.getAttribute('data-filterable-for');
+    const input = host && ((ownId && doc.getElementById(ownId)) || doc.querySelector('input[placeholder^="Find a repository"]'));
     if (!input) return false;
 
     current = { host, input, state };
@@ -140,17 +143,16 @@
     }
     if (!input.dataset.grBound) {
       input.dataset.grBound = '1';
-      // Capture on the document so GitHub's own filter never sees the typing and cannot hide
-      // everything because "Games, Tools" is not part of any repo name.
-      doc.addEventListener(
-        'input',
-        (event) => {
-          if (event.target !== input) return;
-          event.stopImmediatePropagation();
-          applyFilter();
-        },
-        true,
-      );
+      // Capture on the document so GitHub's own search never sees the typing: it would hide
+      // everything because "@gam" is not part of any repo name, and Enter would reload the page.
+      const handle = (event) => {
+        if (event.target !== input) return;
+        event.stopImmediatePropagation();
+        if (event.type === 'keydown') {
+          if (event.key === 'Enter') event.preventDefault();
+        } else applyFilter();
+      };
+      for (const type of ['keydown', 'keyup', 'input']) doc.addEventListener(type, handle, true);
     }
     applyFilter();
     return true;
