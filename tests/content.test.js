@@ -6,7 +6,7 @@ const repoItem = (name) => `
 
 const page = (...names) => `
   <meta name="user-login" content="me">
-  <input id="your-repos-filter" placeholder="Find a repository…">
+  <div class="border-bottom color-border-muted"><form><input id="your-repos-filter"></form></div>
   <div id="user-repositories-list">
     <ul data-filterable-for="your-repos-filter">${names.map(repoItem).join('')}</ul>
   </div>`;
@@ -48,6 +48,7 @@ const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
 let api;
 
 beforeEach(async () => {
+  api?.stop();
   document.body.innerHTML = '';
   vi.unstubAllGlobals();
   delete globalThis.chrome;
@@ -148,6 +149,15 @@ describe('fetching', () => {
     expect(result.fetchedAt).toBeGreaterThan(0);
   });
 
+  it('tries the stars tab when the lists page does not exist', async () => {
+    const getDoc = vi.fn(async (url) => {
+      if (url === '/stars/me/lists') throw new Error('404');
+      return parse(url.includes('tab=stars') ? '<a href="/stars/me/lists/games">Games</a>' : listPage('one'));
+    });
+    const result = await api.collect('me', getDoc);
+    expect(result.membership).toEqual({ 'me/one': ['games'] });
+  });
+
   it('falls back to the stars tab and copes with having no lists', async () => {
     const getDoc = vi.fn(async (url) =>
       parse(url.includes('tab=stars') ? '<a href="/stars/me/lists/games">Games</a>' : '<p>nothing</p>'),
@@ -176,35 +186,9 @@ describe('storage', () => {
 });
 
 const visible = () => [...document.querySelectorAll('li:not(.gr-hide) a[itemprop~="codeRepository"]')].map((a) => a.textContent);
-const type = (text) => {
-  const input = document.getElementById('your-repos-filter');
-  input.value = text;
-  input.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));
-};
-
-describe('query', () => {
-  const st = state();
-
-  it('reads @ words as list prefixes and the rest as search terms', () => {
-    expect(api.parseQuery(' @GAM , @too, extra ', st)).toEqual({
-      slugs: ['games', 'tools'], terms: ['extra'], byList: true,
-    });
-  });
-
-  it('ignores @ words shorter than three letters and plain text', () => {
-    expect(api.parseQuery('@ @ga foo', st)).toEqual({ slugs: [], terms: ['foo'], byList: false });
-    expect(api.parseQuery('  ', st)).toEqual({ slugs: [], terms: [], byList: false });
-  });
-
-  it('keeps a prefix that matches no list as a list filter with no lists', () => {
-    expect(api.parseQuery('@zzz', st)).toEqual({ slugs: [], terms: [], byList: true });
-  });
-
-  it('matches every list a prefix fits, once', () => {
-    const many = state({ lists: [{ slug: 'a', name: 'Web apps' }, { slug: 'b', name: 'Web sites' }] });
-    expect(api.parseQuery('@web @web', many).slugs).toEqual(['a', 'b']);
-  });
-});
+const tabs = () => [...document.querySelectorAll('.gr-tabs [data-list]')];
+const tab = (slug) => document.querySelector(`.gr-tabs [data-list="${slug}"]`);
+const label = (slug) => tab(slug).textContent.replace(/\s+/g, ' ').trim();
 
 describe('mount', () => {
   const setup = (st, ...repos) => {
@@ -212,120 +196,85 @@ describe('mount', () => {
     return api.mount(document, st);
   };
 
-  it('does nothing on pages without a repository list or filter field', () => {
-    document.body.innerHTML = '<div id="user-repositories-list"></div>';
-    expect(api.mount(document, state())).toBe(false);
+  it('does nothing on pages without a repository list', () => {
     document.body.innerHTML = '';
     expect(api.mount(document, state())).toBe(false);
-    document.body.innerHTML = page('one').replace('id="your-repos-filter"', 'id="other"').replace('Find a repository', 'Search');
-    expect(api.mount(document, state())).toBe(false);
+    expect(document.querySelector('.gr-tabs')).toBeNull();
   });
 
-  it('adds no elements to the page', () => {
-    document.body.innerHTML = page('one');
-    const count = document.body.querySelectorAll('*').length;
+  it('puts the tabs between the filter bar and the list, with counts', () => {
+    setup(state(), 'one', 'two', 'three');
+    const nav = document.querySelector('.gr-tabs');
+    expect(nav.nextElementSibling.id).toBe('user-repositories-list');
+    expect(nav.previousElementSibling.className).toContain('border-bottom');
+    expect(tabs().map((t) => label(t.getAttribute('data-list')))).toEqual([
+      'All 3', 'Games 2', 'Tools 1',
+    ]);
+    expect(tab('').classList.contains('selected')).toBe(true);
+    expect(tab('').getAttribute('aria-current')).toBe('page');
+    expect(visible()).toEqual(['one', 'two', 'three']);
+  });
+
+  it('shows only the repos of the clicked list and goes back to all', () => {
+    setup(state(), 'one', 'two', 'three');
+    tab('tools').click();
+    expect(visible()).toEqual(['two']);
+    expect(tab('tools').classList.contains('selected')).toBe(true);
+    expect(tab('').classList.contains('selected')).toBe(false);
+    expect(tab('').hasAttribute('aria-current')).toBe(false);
+    tab('games').click();
+    expect(visible()).toEqual(['one', 'two']);
+    tab('').click();
+    expect(visible()).toEqual(['one', 'two', 'three']);
+  });
+
+  it('is idempotent and keeps the chosen tab on a re-mount', () => {
+    setup(state(), 'one', 'two');
+    tab('games').click();
     api.mount(document, state());
-    expect(document.body.querySelectorAll('*').length).toBe(count);
+    expect(document.querySelectorAll('.gr-tabs')).toHaveLength(1);
+    expect(tab('games').classList.contains('selected')).toBe(true);
+    expect(visible()).toEqual(['one', 'two']);
   });
 
-  it('names example lists in the placeholder once lists are known', () => {
+  it('falls back to all when the chosen list no longer exists', () => {
+    setup(state(), 'one', 'three');
+    tab('tools').click();
+    api.mount(document, state({ lists: [{ slug: 'games', name: 'Games' }] }));
+    expect(tab('').classList.contains('selected')).toBe(true);
+    expect(visible()).toEqual(['one', 'three']);
+  });
+
+  it('shows just All while no lists are known', () => {
     setup(api.emptyState(), 'one');
-    expect(document.getElementById('your-repos-filter').placeholder).toBe('Find a repository…');
-    api.mount(document, state());
-    expect(document.getElementById('your-repos-filter').placeholder).toBe(
-      'Find a repository or @list, e.g. @Games…',
-    );
-  });
-
-  it('shows only the repos of the typed lists, live while typing', () => {
-    setup(state(), 'one', 'two', 'three');
-    expect(visible()).toEqual(['one', 'two', 'three']);
-    type('@Gam');
-    expect(visible()).toEqual(['one', 'two']);
-    type('@too');
-    expect(visible()).toEqual(['two']);
-    type('@ga');
-    expect(visible()).toEqual(['one', 'two', 'three']);
-    type('@zzz');
-    expect(visible()).toEqual([]);
-    type('@tools, @games');
-    expect(visible()).toEqual(['one', 'two']);
-    type('');
-    expect(visible()).toEqual(['one', 'two', 'three']);
-  });
-
-  it('filters on keyup too, but only from three characters on', () => {
-    setup(state(), 'one', 'two', 'three');
-    const input = document.getElementById('your-repos-filter');
-    const key = (text) => {
-      input.value = text;
-      input.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true }));
-    };
-    key('@to');
-    expect(visible()).toEqual(['one', 'two', 'three']);
-    key('@too');
-    expect(visible()).toEqual(['two']);
-    key('@t');
-    expect(visible()).toEqual(['one', 'two', 'three']);
-  });
-
-  it('keeps Enter from submitting the search, and other keys alone', () => {
-    setup(state(), 'one');
-    const input = document.getElementById('your-repos-filter');
-    const press = (key) => {
-      const event = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true });
-      input.dispatchEvent(event);
-      return event.defaultPrevented;
-    };
-    expect(press('Enter')).toBe(true);
-    expect(press('a')).toBe(false);
-  });
-
-  it('finds the search box by its placeholder when the list has no filter link', () => {
-    document.body.innerHTML = page('one').replace(' data-filterable-for="your-repos-filter"', '');
-    expect(api.mount(document, state())).toBe(true);
-    type('@Games');
+    expect(tabs()).toHaveLength(1);
     expect(visible()).toEqual(['one']);
   });
 
-  it('narrows a list by further words', () => {
-    setup(state(), 'one', 'two', 'three');
-    type('@games two');
+  it('filters again when GitHub reloads the list in place', async () => {
+    setup(state(), 'one', 'two');
+    tab('tools').click();
+    document.getElementById('user-repositories-list').innerHTML =
+      '<ul data-filterable-for="your-repos-filter">' + repoItem('two') + repoItem('three') + repoItem('four') + '</ul>';
+    await flush();
     expect(visible()).toEqual(['two']);
+    expect(label('')).toBe('All 3');
+    expect(label('tools')).toBe('Tools 1');
   });
 
-  it('searches plain words when no @ list is given', () => {
-    setup(state(), 'one', 'two', 'three');
-    type(' TWO ');
-    expect(visible()).toEqual(['two']);
-    type('zzz');
-    expect(visible()).toEqual([]);
-  });
-
-  it("keeps GitHub's own filter from seeing the typing", () => {
+  it('puts the tabs back if the page removes them', async () => {
     setup(state(), 'one');
-    const own = vi.fn();
-    document.getElementById('your-repos-filter').addEventListener('input', own);
-    type('@Games');
-    expect(own).not.toHaveBeenCalled();
+    document.querySelector('.gr-tabs').remove();
+    await flush();
+    expect(document.querySelectorAll('.gr-tabs')).toHaveLength(1);
   });
 
-  it('ignores typing in other fields and binds the field only once', () => {
-    setup(state(), 'one', 'two');
+  it('survives the list being removed and watches only the newest page', async () => {
+    setup(state(), 'one');
     api.mount(document, state());
-    api.mount(document, state());
-    const other = document.createElement('input');
-    document.body.append(other);
-    other.dispatchEvent(new Event('input', { bubbles: true }));
-    type('@Games, one');
-    expect(visible()).toEqual(['one']);
-  });
-
-  it('uses the newest data after a re-mount', () => {
-    setup(state(), 'one', 'two');
-    api.mount(document, state({ membership: { 'me/two': ['games'] } }));
-    type('@games');
-    expect(visible()).toEqual(['two']);
+    document.getElementById('user-repositories-list').remove();
+    await flush();
+    expect(document.querySelectorAll('.gr-tabs')).toHaveLength(1);
   });
 });
 
@@ -349,7 +298,7 @@ describe('run and start', () => {
     vi.stubGlobal('fetch', vi.fn());
     document.body.innerHTML = page('one', 'two');
     expect(await api.run(document)).toBe(true);
-    type('@Games');
+    tab('games').click();
     expect(visible()).toEqual(['one', 'two']);
     expect(fetch).not.toHaveBeenCalled();
   });
@@ -359,7 +308,8 @@ describe('run and start', () => {
     stubGitHub();
     document.body.innerHTML = page('one', 'two');
     await api.run(document);
-    type('@Games');
+    expect(label('games')).toBe('Games 1');
+    tab('games').click();
     expect(visible()).toEqual(['one']);
     expect(chrome.data.groupReposData.membership).toEqual({ 'me/one': ['games'] });
   });
@@ -369,7 +319,7 @@ describe('run and start', () => {
     vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false, status: 500 })));
     document.body.innerHTML = page('one', 'two');
     await api.run(document);
-    type('@Tools');
+    tab('tools').click();
     expect(visible()).toEqual(['two']);
     expect(chrome.storage.local.set).not.toHaveBeenCalled();
   });
@@ -392,6 +342,7 @@ describe('run and start', () => {
     document.dispatchEvent(new Event('pjax:end'));
     await flush();
     expect(chrome.storage.local.get).toHaveBeenCalledTimes(3);
+    expect(document.querySelectorAll('.gr-tabs')).toHaveLength(1);
   });
 
   it('starts by itself when the extension storage is available', async () => {
@@ -399,6 +350,6 @@ describe('run and start', () => {
     document.body.innerHTML = page('one');
     await loadScript();
     await flush();
-    expect(document.getElementById('your-repos-filter').dataset.grBound).toBe('1');
+    expect(document.querySelector('.gr-tabs')).not.toBeNull();
   });
 });
