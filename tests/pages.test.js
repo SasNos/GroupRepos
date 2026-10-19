@@ -65,6 +65,20 @@ describe('all pages', () => {
     expect(visible()).toEqual(['one', 'four', 'six']);
   });
 
+  it('drops the sparkline placeholders of the later pages', async () => {
+    const withFragment = page(['three']).replace(
+      '</li>',
+      '<poll-include-fragment src="/x"><div>Unable to load</div></poll-include-fragment><include-fragment></include-fragment></li>',
+    );
+    stubPages({ '/me?page=2': withFragment });
+    document.body.innerHTML = page(['one'], '/me?page=2');
+    api.mount(document, state());
+    await flush();
+    expect(document.querySelectorAll('li[itemprop="owns"]')).toHaveLength(2);
+    expect(document.querySelectorAll('poll-include-fragment, include-fragment')).toHaveLength(0);
+    expect(document.body.textContent).not.toContain('Unable to load');
+  });
+
   it('keeps the chosen tab for rows that arrive later', async () => {
     stubPages({ '/me?page=2': page(['three', 'four']) });
     document.body.innerHTML = page(['one', 'two'], '/me?page=2');

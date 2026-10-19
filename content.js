@@ -143,7 +143,11 @@
       for (let page = 0; next && page < MAX_PAGES; page++) {
         const more = (await fetchDoc(next)).querySelector(LIST_SELECTOR);
         if (!more) break;
-        for (const item of more.querySelectorAll('li[itemprop="owns"]')) list.append(doc.importNode(item, true));
+        for (const item of more.querySelectorAll('li[itemprop="owns"]')) {
+          // The sparkline placeholders would start loading in the live page and spill their error text.
+          item.querySelectorAll('include-fragment, poll-include-fragment').forEach((fragment) => fragment.remove());
+          list.append(doc.importNode(item, true));
+        }
         next = nextPageUrl(more);
       }
       if (list.isConnected) host.querySelectorAll('.paginate-container').forEach((bar) => bar.remove());
