@@ -4,7 +4,7 @@ A small Chrome extension for the **Repositories** tab of your GitHub profile. Gi
 
 ## How it works
 
-Open `github.com/<you>?tab=repositories`. Between the search bar and the list there is now a tab bar. Click a tab and the page shows only the repos in that list; click **All** to see everything again. Each tab has a small counter with the number of repos on the current page. The tabs use GitHub's own underline navigation style.
+Open `github.com/<you>?tab=repositories`. Between the search bar and the list there is now a tab bar. Click a tab and the page shows only the repos in that list; click **All** to see everything again. Each tab has a small counter with the number of repos in that list. The tabs use GitHub's own underline navigation style.
 
 The chosen tab survives searching and sorting: GitHub reloads the list in place when you do that, and the extension filters the new result again. A repo that is in several lists shows up under each of them.
 
@@ -18,7 +18,7 @@ Your lists are read with your own GitHub session (`/stars/<you>/lists/...`), so 
 ## Known limits
 
 - Only the Repositories tab of a profile is handled. Organisation pages use a different layout.
-- GitHub paginates the repo list, so the tabs and counters only cover the repos on the current page.
+- GitHub shows 30 repos per page. The extension fetches the later pages itself, appends them to the list and removes the pagination, so tabs and counters cover every repo. With many repos this takes a moment after the page opens; if a fetch fails, the first page and its pagination stay.
 - GitHub lists belong to starred repos. A repo is only in a list if you starred it first.
 - The reading of GitHub's list pages depends on its current markup (repo names in the headings of `/stars/<you>/lists/<list>`). If GitHub changes it, only **All** shows up.
 

@@ -12,6 +12,7 @@
   // The chosen tab (a list slug, or '' for all) and the watcher of the repo list.
   let selected = '';
   let observer = null;
+  let loading = false;
 
   const viewerName = (doc) => {
     const meta = doc.querySelector('meta[name="user-login"]');
@@ -125,6 +126,35 @@
     }
   }
 
+  const nextPageUrl = (scope) => {
+    const link = scope.querySelector('.paginate-container a.next_page, .paginate-container a[rel="next"]');
+    return link ? link.getAttribute('href') : '';
+  };
+
+  // GitHub shows 30 repos per page. Fetch the rest and append it to the first page, so the tabs
+  // and counters cover every repo. A failed fetch leaves the pagination in place.
+  async function loadAllPages(doc, state) {
+    const host = doc.querySelector(LIST_SELECTOR);
+    const list = host && host.querySelector('ul[data-filterable-for]');
+    if (loading || !list || !nextPageUrl(host)) return;
+    loading = true;
+    try {
+      let next = nextPageUrl(host);
+      for (let page = 0; next && page < MAX_PAGES; page++) {
+        const more = (await fetchDoc(next)).querySelector(LIST_SELECTOR);
+        if (!more) break;
+        for (const item of more.querySelectorAll('li[itemprop="owns"]')) list.append(doc.importNode(item, true));
+        next = nextPageUrl(more);
+      }
+      if (list.isConnected) host.querySelectorAll('.paginate-container').forEach((bar) => bar.remove());
+    } catch {
+      // Keep the first page and its pagination; the next page load tries again.
+    } finally {
+      loading = false;
+    }
+    applyFilter(doc, state);
+  }
+
   function paintTabs(doc) {
     for (const tab of doc.querySelectorAll('.gr-tabs [data-list]')) {
       const on = tab.getAttribute('data-list') === selected;
@@ -169,9 +199,13 @@
     stop();
     observer = new doc.defaultView.MutationObserver(() => {
       if (!doc.querySelector('.gr-tabs')) mount(doc, state);
-      else applyFilter(doc, state);
+      else {
+        applyFilter(doc, state);
+        loadAllPages(doc, state);
+      }
     });
     observer.observe(host.parentNode, { childList: true, subtree: true });
+    loadAllPages(doc, state);
     return true;
   }
 
