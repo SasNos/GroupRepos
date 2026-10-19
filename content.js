@@ -1,6 +1,7 @@
 // Group Repos: a tab bar above the repository list (All, Games, Tools, ...) built from your GitHub
 // lists. The lists are read from GitHub with your own session; the result is cached in
-// chrome.storage.local and nothing leaves the browser.
+// chrome.storage.local (in Spark: localStorage) and nothing leaves the browser.
+// Runs as a Chrome extension or as a built-in tool of the Spark browser, see docs/SPARK.md.
 (() => {
   const KEY = 'groupReposLists';
   const LIST_SELECTOR = '#user-repositories-list';
@@ -98,12 +99,24 @@
     return link ? link.getAttribute('href').replace(/^\//, '') : '';
   }
 
+  // Spark has no extension API, so there the cache lives in the page's localStorage under the same key.
+  const extensionStorage = () => (typeof chrome !== 'undefined' && chrome.storage ? chrome.storage.local : null);
+
   async function load() {
-    const stored = await chrome.storage.local.get(KEY);
-    return { ...emptyState(), ...stored[KEY] };
+    const storage = extensionStorage();
+    if (storage) return { ...emptyState(), ...(await storage.get(KEY))[KEY] };
+    try {
+      return { ...emptyState(), ...JSON.parse(localStorage.getItem(KEY)) };
+    } catch {
+      return emptyState(); // broken or blocked storage: start over, the next fetch fills it again
+    }
   }
 
-  const save = (state) => chrome.storage.local.set({ [KEY]: state });
+  async function save(state) {
+    const storage = extensionStorage();
+    if (storage) await storage.set({ [KEY]: state });
+    else localStorage.setItem(KEY, JSON.stringify(state));
+  }
 
   function el(doc, tag, attrs = {}, text = '') {
     const node = doc.createElement(tag);
@@ -257,5 +270,6 @@
     emptyState,
   };
 
-  if (typeof chrome !== 'undefined' && chrome.storage) start(document);
+  // The extension starts here. Spark injects this file and then calls GroupRepos.start(document) itself.
+  if (extensionStorage()) start(document);
 })();

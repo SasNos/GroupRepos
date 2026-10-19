@@ -1,0 +1,18 @@
+{
+  "id": "group-repos",
+  "name": "Group Repos",
+  "version": "1.2.0",
+  "description": "Tab bar of your GitHub lists on the Repositories tab of your profile.",
+  "matches": ["https://github.com/*"],
+  "css": ["content.css"],
+  "js": ["content.js"],
+  "start": "GroupRepos.start(document)",
+  "runAt": "document_idle",
+  "storage": "localStorage",
+  "network": [
+    "GET https://github.com/stars/<you>/lists",
+    "GET https://github.com/<you>?tab=stars",
+    "GET https://github.com/stars/<you>/lists/<list>",
+    "GET https://github.com/<you>?tab=repositories&page=<n>"
+  ]
+}

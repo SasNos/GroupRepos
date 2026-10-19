@@ -10,6 +10,10 @@ The chosen tab survives searching and sorting: GitHub reloads the list in place 
 
 Your lists are read with your own GitHub session (`/stars/<you>/lists/...`), so private repos work too. The result is cached in `chrome.storage.local` and read again when it is older than ten minutes, on the next page load. If reading fails, the cached lists stay. Nothing is sent anywhere else. You keep managing the lists on GitHub itself (the "Lists" menu on a repo).
 
+## In Spark
+
+The same code runs as a built-in tool of the Spark browser. `spark.json` tells Spark which files to inject and how to start them; [docs/SPARK.md](docs/SPARK.md) has the details. There the cache lives in `localStorage` instead of `chrome.storage.local`.
+
 ## Install
 
 1. Run `npm install` once if you want to run the tests.
@@ -38,7 +42,7 @@ npm run check         # lint, format check and tests in one go
 
 ## Packaging for the Chrome Web Store
 
-The store package is only the extension itself (about 17 KB): `manifest.json`, `content.js`, `content.css` and `icons/`. Leave out `node_modules`, `tests` and the config files; the test tooling is what makes the folder tens of megabytes. Build the zip from the repository folder:
+The store package is only the extension itself (about 17 KB): `manifest.json`, `content.js`, `content.css` and `icons/`. Leave out `node_modules`, `tests`, `docs`, `spark.json` and the config files; the test tooling is what makes the folder tens of megabytes. Build the zip from the repository folder:
 
 ```
 python -c "import zipfile,json;v=json.load(open('manifest.json'))['version'];z=zipfile.ZipFile('dist/group-repos-'+v+'.zip','w',zipfile.ZIP_DEFLATED);[z.write(f) for f in ['manifest.json','content.js','content.css','icons/icon16.png','icons/icon32.png','icons/icon48.png','icons/icon128.png']]"

@@ -52,6 +52,7 @@ beforeEach(async () => {
   document.body.innerHTML = '';
   vi.unstubAllGlobals();
   delete globalThis.chrome;
+  localStorage.clear();
   api = await loadScript();
 });
 
@@ -189,6 +190,18 @@ describe('storage', () => {
     globalThis.chrome = fakeChrome();
     await api.save(state());
     expect((await api.load()).lists).toHaveLength(2);
+  });
+
+  it('uses localStorage when there is no extension API, as in Spark', async () => {
+    expect(await api.load()).toEqual(api.emptyState());
+    await api.save(state());
+    expect(JSON.parse(localStorage.getItem('groupReposLists')).lists).toHaveLength(2);
+    expect((await api.load()).membership['me/two']).toEqual(['tools', 'games']);
+  });
+
+  it('starts over when localStorage holds broken data', async () => {
+    localStorage.setItem('groupReposLists', '{broken');
+    expect(await api.load()).toEqual(api.emptyState());
   });
 });
 
@@ -355,6 +368,13 @@ describe('run and start', () => {
     await flush();
     expect(chrome.storage.local.get).toHaveBeenCalledTimes(3);
     expect(document.querySelectorAll('.gr-tabs')).toHaveLength(1);
+  });
+
+  it('does not start by itself without the extension API, Spark starts it', async () => {
+    document.body.innerHTML = page('one');
+    await loadScript();
+    await flush();
+    expect(document.querySelector('.gr-tabs')).toBeNull();
   });
 
   it('starts by itself when the extension storage is available', async () => {
