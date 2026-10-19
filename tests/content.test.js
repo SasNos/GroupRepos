@@ -122,7 +122,10 @@ describe('fetching', () => {
   });
 
   it('throws when GitHub answers with an error', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false, status: 404 })));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({ ok: false, status: 404 })),
+    );
     await expect(api.fetchDoc('/gone')).rejects.toThrow('GitHub answered 404 for /gone');
   });
 
@@ -170,9 +173,7 @@ describe('fetching', () => {
     );
     const result = await api.collect('me', getDoc);
     expect(result.lists).toHaveLength(1);
-    expect(getDoc.mock.calls.map((c) => c[0])).toEqual([
-      '/stars/me/lists', '/me?tab=stars', '/stars/me/lists/games',
-    ]);
+    expect(getDoc.mock.calls.map((c) => c[0])).toEqual(['/stars/me/lists', '/me?tab=stars', '/stars/me/lists/games']);
     const none = await api.collect('me', async () => parse('<p>nothing</p>'));
     expect(none.lists).toEqual([]);
   });
@@ -191,7 +192,8 @@ describe('storage', () => {
   });
 });
 
-const visible = () => [...document.querySelectorAll('li:not(.gr-hide) a[itemprop~="codeRepository"]')].map((a) => a.textContent);
+const visible = () =>
+  [...document.querySelectorAll('li:not(.gr-hide) a[itemprop~="codeRepository"]')].map((a) => a.textContent);
 const tabs = () => [...document.querySelectorAll('.gr-tabs [data-list]')];
 const tab = (slug) => document.querySelector(`.gr-tabs [data-list="${slug}"]`);
 const label = (slug) => tab(slug).textContent.replace(/\s+/g, ' ').trim();
@@ -213,9 +215,7 @@ describe('mount', () => {
     const nav = document.querySelector('.gr-tabs');
     expect(nav.nextElementSibling.id).toBe('user-repositories-list');
     expect(nav.previousElementSibling.className).toContain('border-bottom');
-    expect(tabs().map((t) => label(t.getAttribute('data-list')))).toEqual([
-      'All 3', 'Games 2', 'Tools 1',
-    ]);
+    expect(tabs().map((t) => label(t.getAttribute('data-list')))).toEqual(['All 3', 'Games 2', 'Tools 1']);
     expect(tab('').classList.contains('selected')).toBe(true);
     expect(tab('').getAttribute('aria-current')).toBe('page');
     expect(visible()).toEqual(['one', 'two', 'three']);
@@ -290,7 +290,10 @@ describe('run and start', () => {
       '/stars/me/lists': '<a href="/stars/me/lists/games">Games</a>',
       '/stars/me/lists/games': listPage('one'),
     };
-    vi.stubGlobal('fetch', vi.fn(async (url) => ({ ok: true, text: async () => pages[url] })));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url) => ({ ok: true, text: async () => pages[url] })),
+    );
   };
 
   it('skips pages that have no repository list', async () => {
@@ -322,7 +325,10 @@ describe('run and start', () => {
 
   it('keeps the old data quietly when GitHub cannot be read', async () => {
     globalThis.chrome = fakeChrome(state({ fetchedAt: 1 }));
-    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false, status: 500 })));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({ ok: false, status: 500 })),
+    );
     document.body.innerHTML = page('one', 'two');
     await api.run(document);
     tab('tools').click();

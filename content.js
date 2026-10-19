@@ -21,7 +21,10 @@
 
   function listLabel(link, slug) {
     const heading = link.querySelector('h3') || link;
-    const lines = heading.textContent.split('\n').map((s) => s.trim()).filter(Boolean);
+    const lines = heading.textContent
+      .split('\n')
+      .map((s) => s.trim())
+      .filter(Boolean);
     const name = (lines[0] || '').replace(/\s*\d+\s+repositor(y|ies)\s*$/i, '').trim();
     return name || slug;
   }
@@ -238,8 +241,20 @@
   }
 
   globalThis.GroupRepos = {
-    parseListLinks, parseRepoLinks, fetchRepos, collect, fetchDoc, repoName, viewerName,
-    mount, run, start, stop, load, save, emptyState,
+    parseListLinks,
+    parseRepoLinks,
+    fetchRepos,
+    collect,
+    fetchDoc,
+    repoName,
+    viewerName,
+    mount,
+    run,
+    start,
+    stop,
+    load,
+    save,
+    emptyState,
   };
 
   if (typeof chrome !== 'undefined' && chrome.storage) start(document);

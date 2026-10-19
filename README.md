@@ -30,6 +30,12 @@ npm test
 
 Runs Vitest in jsdom with hand-written markup and a faked `fetch` and `chrome.storage`, and enforces 100 % line, branch, function and statement coverage of `content.js`. The extension itself was checked by hand in Chrome on a real profile.
 
+```
+npm run lint          # ESLint
+npm run format        # Prettier, rewrites the files
+npm run check         # lint, format check and tests in one go
+```
+
 ## Packaging for the Chrome Web Store
 
 The store package is only the extension itself (about 17 KB): `manifest.json`, `content.js`, `content.css` and `icons/`. Leave out `node_modules`, `tests` and the config files; the test tooling is what makes the folder tens of megabytes. Build the zip from the repository folder:

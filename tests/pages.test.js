@@ -24,8 +24,10 @@ const state = () => ({
 });
 
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
-const visible = () => [...document.querySelectorAll('li:not(.gr-hide) a[itemprop~="codeRepository"]')].map((a) => a.textContent);
-const label = (slug) => document.querySelector(`.gr-tabs [data-list="${slug}"]`).textContent.replace(/\s+/g, ' ').trim();
+const visible = () =>
+  [...document.querySelectorAll('li:not(.gr-hide) a[itemprop~="codeRepository"]')].map((a) => a.textContent);
+const label = (slug) =>
+  document.querySelector(`.gr-tabs [data-list="${slug}"]`).textContent.replace(/\s+/g, ' ').trim();
 
 const stubPages = (pages) => {
   const fetchMock = vi.fn(async (url) =>
