@@ -336,6 +336,26 @@ describe('run and start', () => {
     expect(chrome.data.groupReposLists.membership).toEqual({ 'me/one': ['games'] });
   });
 
+  it('picks up a list that was added a minute ago and counts a shared repo once in All', async () => {
+    globalThis.chrome = fakeChrome(state({ fetchedAt: Date.now() - 60 * 1000 }));
+    const pages = {
+      '/stars/me/lists': '<a href="/stars/me/lists/games">Games</a><a href="/stars/me/lists/new-one">New one</a>',
+      '/stars/me/lists/games': listPage('one', 'two'),
+      '/stars/me/lists/new-one': listPage('two', 'three'),
+    };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url) => ({ ok: true, text: async () => pages[url] })),
+    );
+    document.body.innerHTML = page('one', 'two', 'three');
+    await api.run(document);
+    expect(tabs().map((t) => label(t.getAttribute('data-list')))).toEqual(['All 3', 'Games 2', 'New one 2']);
+    tab('games').click();
+    expect(visible()).toEqual(['one', 'two']);
+    tab('new-one').click();
+    expect(visible()).toEqual(['two', 'three']);
+  });
+
   it('keeps the old data quietly when GitHub cannot be read', async () => {
     globalThis.chrome = fakeChrome(state({ fetchedAt: 1 }));
     vi.stubGlobal(

@@ -8,7 +8,7 @@ Open `github.com/<you>?tab=repositories`. Between the search bar and the list th
 
 The chosen tab survives searching and sorting: GitHub reloads the list in place when you do that, and the extension filters the new result again. A repo that is in several lists shows up under each of them.
 
-Your lists are read with your own GitHub session (`/stars/<you>/lists/...`), so private repos work too. The result is cached in `chrome.storage.local` and read again when it is older than ten minutes, on the next page load. If reading fails, the cached lists stay. Nothing is sent anywhere else. You keep managing the lists on GitHub itself (the "Lists" menu on a repo).
+Your lists are read with your own GitHub session (`/stars/<you>/lists/...`), so private repos work too. The result is cached in `chrome.storage.local` and read again on the next page load when it is older than 15 seconds, so new lists and changed memberships show up on the next visit. If reading fails, the cached lists stay. Nothing is sent anywhere else. You keep managing the lists on GitHub itself (the "Lists" menu on a repo).
 
 ## In Spark
 

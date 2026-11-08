@@ -5,7 +5,7 @@
 (() => {
   const KEY = 'groupReposLists';
   const LIST_SELECTOR = '#user-repositories-list';
-  const STALE_MS = 10 * 60 * 1000;
+  const STALE_MS = 15 * 1000;
   const MAX_PAGES = 20;
 
   const emptyState = () => ({ lists: [], membership: {}, fetchedAt: 0 });
