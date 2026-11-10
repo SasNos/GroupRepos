@@ -1,10 +1,70 @@
 # Group Repos: working rules
 
-Read this first in every session, then `README.md` (use, limits, state).
+Read this first in every session, then `README.md` (use, limits) and `docs/STATUS.md` (state, open work).
 
 - The user writes in German; reply in German. Everything in the repository is English: file and folder names, code, comments, commit messages, documentation. UI texts are English.
 - Write texts the way a person would: plain, short, no filler. The user does not want it to read like AI output.
 - Global rules of the user apply: commit the previous change when a new task comes in (named paths only, one logical change per commit, Co-Authored-By line of the model in use), 100 % test coverage of `content.js` enforced by `npm test`, a bug gets a failing test first, report honestly what was tested.
-- Remote: `origin` is the public GitHub repository `SasNos/GroupRepos`; the user allowed pushing there (2026-10-17).
+- Remote: `origin` is the public GitHub repository `SasNos/GroupRepos`. The user allowed pushing there on 2026-10-17, but the later global rule 3 (2026-10-27: push only to private remotes) wins: Claude pushes only when the user asks for this repository explicitly.
 - LF line endings, UTF-8. ESLint and Prettier: `npm run check` runs lint, format check and tests.
-- State: v1.1.0 puts a tab bar (All + the user's GitHub star lists) between the filter bar and the repo list on the repositories tab. GitHub reloads that list in place on search, so a MutationObserver re-applies the filter. Checked by the user in Chrome on the live repositories page (2026-10-17); list pages mark repos with h2 headings. Since 1.1.0 it also loads all pages of the repo list (30 per page) and strips the sparkline placeholders from the later pages; checked by the user in Chrome (2026-10-19). Since 1.2.1 the lists are re-read when the cache is older than 15 seconds (was 10 minutes), so new lists show up on the next visit; a repo in several lists is listed under each of them and counted once in All. Since 1.2.0 it also runs as a built-in tool of Spark (`spark.json`, `docs/SPARK.md`): without `chrome.storage` it caches in `localStorage` and Spark calls `GroupRepos.start(document)`; not yet tried in Spark, which has no code yet (2026-10-19).
+- Look: no style guide of its own; the tab bar uses GitHub's own classes (UnderlineNav, Counter), so it matches the page (user, 2026-10-19). Mber Flow does not apply here.
+
+## Shared standards of the Spark tools (2026-11-10)
+
+This section is identical in Spark (`Tools\Spark\Browser`) and in every tool under `Tools\Spark\Extensions` (GroupRepos, Shottr, Site Restyler, Honest Ratings, Anime Link Finder). The rules above add to it; where they differ, the rules above win for this repository. A change to this section is made in all six repositories in the same session.
+
+### Session start
+
+1. Read this file, then `docs/STATUS.md`.
+2. `git fetch origin`, then `git status -sb`. Behind only: `git pull --ff-only origin main`. Ahead and behind: merge `origin/main`, keep the behaviour of both sides, run `npm run check`, commit the merge. Never force-push, never rebase published commits, never discard local commits.
+3. `npm ci` when `node_modules/` is missing or `package-lock.json` changed.
+4. `graphify update .` (graph in `graphify-out/`, gitignored). Architecture and call questions: graph first (`graphify query`, `path`, `explain`), then only the lines it points to.
+
+### Commands (same names in every repository)
+
+| Command                                   | Does                                                                                                          |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `npm test`                                | Unit tests with the coverage gate: 100 % lines, branches and functions (Vitest also statements). Fails below. |
+| `npm run lint`                            | ESLint (and Stylelint where the repository has it).                                                           |
+| `npm run format` / `npm run format:check` | Prettier: `printWidth` 120, `singleQuote`, `trailingComma: all`, LF.                                          |
+| `npm run tokens` / `npm run tokens:check` | Style guide sync from Mber Flow (only repositories with the Mber Flow look).                                  |
+| `npm run check`                           | All of the above. Must be green before every commit.                                                          |
+| `npm run build`                           | Only where a build step exists. Run after every change, so the folder Chrome loads is current.                |
+
+Spark runs the npm commands in `app/` and adds `cargo test`; it has no ESLint and Prettier yet (open work in its `docs/STATUS.md`), so its `npm run check` is typecheck, `tokens:check` and `npm test`.
+
+### Style guide
+
+- **Source:** Mber Flow, `D:\Dateien - Work\Eigene\Tools\Mber Web\Mber Flow` (`app/src/theme.css`, `app/src/fonts`, `docs/STYLEGUIDE.md`). It is the only source of the look of Spark, Shottr, Site Restyler and Honest Ratings. GroupRepos follows GitHub's own look (user, 2026-10-19). Anime Link Finder: open, ask the user before restyling it.
+- **Never copy tokens by hand.** `npm run tokens` generates the token file and records the hashes in `tokens.source.json`. In the tools the generator is `tools/tokens.mjs` (identical in Shottr, Site Restyler and Honest Ratings; a change is copied to all three): it takes the token list from `tokens.config.json` and copies Figtree and Open Sans into `fonts/`. Spark has `app/scripts/tokens.ts` (logic in `app/src/tokenSync.ts`) and bundles the same fonts from npm (`@fontsource-variable`, `app/src/fonts.css`). Never edit a generated file. A missing token: add its name to `tokens.config.json`, run `npm run tokens`. `MBER_FLOW_DIR` overrides where Mber Flow is looked up.
+- **STYLE GUIDE DRIFT** in the output of `npm run tokens` means Mber Flow changed: regenerate, check the UI in light and dark, mention it in the report.
+- **Fonts:** headings (`h1`–`h3`, titles) `var(--font-1)` = Figtree, everything else `var(--font)` = Open Sans. Self-hosted only, no font CDN. UI injected into a web page may keep the system font where loading the fonts would need extra permissions; a comment says so.
+- **Rules use only variables:** spacing `--space-*`, type `--fs-*`, radii `--radius-*`, heights `--h-*`, colors only as variables, never hex or rgb in rules. 4 px grid; 2 px only for hairlines and the focus ring. Hit targets at least 32 px. Light and dark always together. Font weights 400, 600, 700. A justified exception (for example offsets that follow a host page's layout) carries a comment with the reason.
+- Values that have to be copied into JavaScript (UI injected into a page) get a test that compares them with the generated token file.
+
+### Tests
+
+- 100 % coverage of the application code (`src/` and `tools/tokens.mjs`; Spark: TypeScript and Rust). Exclusions only for bindings to disk, browser or OS that cannot run in tests: an ignore comment with the reason in the code and an entry in `docs/STATUS.md` (Spark: `docs/COVERAGE.md`).
+- Every change ships with its tests. A bug gets a failing test first. Security paths (page content, URLs, messages from pages, anything from the network) get negative tests.
+- Keep the repository's test folder name (`test/` or `tests/`) and test runner (Vitest or `node --test`).
+
+### Layout and files of a tool
+
+- The repository folder is the unpacked extension: `chrome://extensions`, Load unpacked, `Tools\Spark\Extensions\<Tool>`. `manifest.json` is at the root. Built files go to `dist/` (gitignored) and `manifest.json` points into `dist/`. Never copy built files into the root.
+- Content-script tools have `spark.json` at the root (format of GroupRepos: `id`, `name`, `version`, `description`, `matches`, `css`, `js`, `start`, `runAt`, `storage`, `network`; paths relative to the root); a test keeps it equal to `manifest.json`. The Spark integration is described in `docs/SPARK.md`.
+- `manifest.json`, `package.json` and `spark.json` carry the same version; raise it with every user-visible change.
+- Documents: `README.md` (use, limits), `CLAUDE.md` (rules), `docs/STATUS.md` (dated entries: what changed, what was tested and how, what was not; numbered open work), `docs/SPARK.md`. Update `docs/STATUS.md` with every change of behaviour or look.
+- `.gitattributes` (`* text=auto eol=lf`), `.editorconfig`, `.prettierrc.json` as above. `.gitignore` has at least `node_modules/`, `coverage/`, `dist/`, `graphify-out/`.
+- Everything in the repository is English; German only in the chat (and in Spark's translation dictionary).
+
+### Git
+
+- One logical change per commit, named paths only (never `git add -A` or `git add .`), message in English, ending with the Co-Authored-By line of the model in use.
+- Push only when the user asks, at most once per day and repository, and only to a private remote. Public remotes (GroupRepos, Shottr, Honest Ratings) are never pushed by Claude; Anime Link Finder has no remote. No `v*` tags, nothing that builds for macOS.
+
+### Finishing a task
+
+1. `npm run check` green (Spark also `cargo test`); `npm run build` where it exists.
+2. Run the review skills `code-review`, `simplify` and `security-review` on the change; fix what they find (with tests) or report what was left and why.
+3. Update `docs/STATUS.md`, commit with named paths, `graphify update .`.
+4. Report in German: what changed, what was tested (unit tests, real Chrome, Spark, platform) and what was not.
