@@ -1,5 +1,10 @@
 # Status
 
+## 11 November 2026: clean-up
+
+- Reviewed all 45 tests: none duplicate, none empty. Deleted `dist/` (two old zips of 1.0.0 and 1.1.0, ignored by git; the README zip command recreates it).
+- Tested: `npm run check` green, coverage still 100 %. No behaviour changed.
+
 ## 10 November 2026: shared standards of the Spark tools
 
 - `docs/STATUS.md` (this file) takes the state that was in `CLAUDE.md`; `CLAUDE.md` gets the shared standards of the
