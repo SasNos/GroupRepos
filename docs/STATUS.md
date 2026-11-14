@@ -13,9 +13,11 @@
   `manifest.json` and the same version as `package.json`.
 - Tested: `npm run check` (lint, Prettier, 45 tests, 100 % coverage). No change to the extension itself.
 
-## State (1.2.1)
+## State (1.2.2)
 
 v1.1.0 puts a tab bar (All + the user's GitHub star lists) between the filter bar and the repo list on the repositories tab. GitHub reloads that list in place on search, so a MutationObserver re-applies the filter. Checked by the user in Chrome on the live repositories page (2026-10-17); list pages mark repos with h2 headings. Since 1.1.0 it also loads all pages of the repo list (30 per page) and strips the sparkline placeholders from the later pages; checked by the user in Chrome (2026-10-19). Since 1.2.1 the lists are re-read when the cache is older than 15 seconds (was 10 minutes), so new lists show up on the next visit; a repo in several lists is listed under each of them and counted once in All. Since 1.2.0 it also runs as a built-in tool of Spark (`spark.json`, `docs/SPARK.md`): without `chrome.storage` it caches in `localStorage` and Spark calls `GroupRepos.start(document)`; not yet tried in Spark, which has no code yet (2026-10-19).
+
+v1.2.1 (2026-11-11): lists re-read after 15 seconds instead of 10 minutes. v1.2.2 (2026-11-14): new icon, the GitHub mark with sort bars (`icons/icon.svg` plus four PNGs); `manifest.json`, `package.json` and `spark.json` carry the same version, checked by a test. The icon is not yet checked in Chrome.
 
 ## Open work
 
