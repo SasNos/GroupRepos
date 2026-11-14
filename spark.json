@@ -1,7 +1,7 @@
 {
   "id": "group-repos",
   "name": "Group Repos",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "description": "Tab bar of your GitHub lists on the Repositories tab of your profile.",
   "matches": ["https://github.com/*"],
   "css": ["content.css"],
