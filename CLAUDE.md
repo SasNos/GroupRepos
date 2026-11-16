@@ -60,11 +60,12 @@ Spark runs the npm commands in `app/` and adds `cargo test`; it has no ESLint an
 ### Git
 
 - One logical change per commit, named paths only (never `git add -A` or `git add .`), message in English, ending with the Co-Authored-By line of the model in use.
-- Push only when the user asks, at most once per day and repository, and only to a private remote. GroupRepos may be pushed (user, 2026-11-10); the other public remotes (Shottr, Honest Ratings) only on an explicit request for that repository. Anime Link Finder has no remote. No `v*` tags, nothing that builds for macOS.
+- Push only when the user asks, at most once per day and repository, and only to a private remote. The public remotes (GroupRepos, Shottr, Honest Ratings) may be pushed too (user, 2026-11-10). Spark is not pushed without the user's explicit go, because every push runs CI with a macOS job. Anime Link Finder has no remote. No `v*` tags, nothing that builds for macOS.
 
 ### Finishing a task
 
 1. `npm run check` green (Spark also `cargo test`); `npm run build` where it exists.
 2. Run the review skills `code-review`, `simplify` and `security-review` on the change; fix what they find (with tests) or report what was left and why.
-3. Update `docs/STATUS.md`, commit with named paths, `graphify update .`.
-4. Report in German: what changed, what was tested (unit tests, real Chrome, Spark, platform) and what was not.
+3. Clean up, after the implementation and before the graph update: remove what the change made unused (code, exports, styles, files, helpers, dependencies), duplicate tests (the same behaviour asserted twice, also across files), tests that assert nothing that matters (only "renders", tautologies, calls made for coverage alone), invalid tests (pass for the wrong reason, assert implementation details such as CSS source text, depend on timing), tests outside the file of their subject, and build leftovers and old test builds. Check what a file is before deleting it; when unsure, keep it and report it. Code that only a removed test covered is dead: remove it too. Run `npm run check` again afterwards.
+4. Update `docs/STATUS.md`, commit with named paths, `graphify update .`.
+5. Report in German: what changed, what was removed, what was tested (unit tests, real Chrome, Spark, platform) and what was not.
